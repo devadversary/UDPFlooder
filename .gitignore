@@ -31,7 +31,8 @@
 *.out
 *.app
 
-./Debug/
-./Release/
-./x64/
-./x86/
+.vs
+syslog_test/x64/
+syslog_test/Debug/
+syslog_test/x86/
+syslog_test/Release/
