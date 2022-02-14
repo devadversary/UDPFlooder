@@ -18,7 +18,7 @@ unsigned long distance(unsigned long a, unsigned long b)
 void Shutter_Init(SHUTTER* pShutter, unsigned long nInterval, BOOL FirstPass)
 {
     if (!pShutter) return;
-    pShutter->nBaseTime = GetTickCount();
+    pShutter->nBaseTime = (unsigned long)GetTickCount64();
     if (FirstPass) pShutter->nBaseTime -= (nInterval+1); /*첫 체크시 무조건 걸리도록 기준시 조정*/
     pShutter->nInterval = nInterval;
 }
@@ -29,9 +29,9 @@ void Shutter_Init(SHUTTER* pShutter, unsigned long nInterval, BOOL FirstPass)
 */
 BOOL Shutter_Check(SHUTTER* pShutter)
 {
-    unsigned long long nCur;
+    unsigned long nCur;
 
-    nCur = GetTickCount();
+    nCur = (unsigned long)GetTickCount64();
     if (distance(nCur, pShutter->nBaseTime) < pShutter->nInterval) return FALSE;
     pShutter->nBaseTime = nCur;
     return TRUE;

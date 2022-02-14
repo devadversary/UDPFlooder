@@ -8,7 +8,7 @@ void Draw_GetTextExtent(HDC hDC, char* Str, HFONT hFont, SIZE* pSize)
 	HFONT hOldFont;
 
 	hOldFont = (HFONT)SelectObject(hDC, hFont);
-	GetTextExtentPoint32A(hDC, Str, strlen(Str), pSize); /*텍스트의 폰트출력 크기 얻기*/
+	GetTextExtentPoint32A(hDC, Str, (int)strlen(Str), pSize); /*텍스트의 폰트출력 크기 얻기*/
 	SelectObject(hDC, hOldFont);
 }
 
@@ -21,7 +21,7 @@ void Draw_Text(HDC hDC, char* Str, int x, int y, COLORREF TextColor, HFONT TextF
 	hOldFont = (HFONT)SelectObject(hDC, TextFont);
 	OldColor = SetTextColor(hDC, TextColor);
 
-	TextOutA(hDC, x, y, Str, strlen(Str));
+	TextOutA(hDC, x, y, Str, (int)strlen(Str));
 
 	SetTextColor(hDC, OldColor);
 	SelectObject(hDC, hOldFont);
@@ -86,7 +86,7 @@ void Draw_Arc(HDC hDC, int x, int y, int r, COLORREF PenColor, DWORD size, DWORD
 
 	hOP = (HPEN)SelectObject(hDC, hPen);
 
-	Arc(hDC, x - r, y - r, x + r, y + r, x + r * cos(theta), y - r * sin(theta), x + r * cos(rad + theta), y - r * sin(rad + theta));
+	Arc(hDC, x - r, y - r, x + r, y + r, (int)(x + r * cos(theta)), (int)(y - r * sin(theta)), (int)(x + r * cos(rad + theta)), (int)(y - r * sin(rad + theta)));
 
 	SelectObject(hDC, hOP);
 

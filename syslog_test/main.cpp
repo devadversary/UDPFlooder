@@ -12,13 +12,13 @@
 
 #pragma comment (lib, "ws2_32.lib")
 
-#define CLASSNAME TEXT("Syslog_Flooder")
+#define CLASSNAME TEXT("UDP_Flooder")
 #define WIN_X (300)
 #define WIN_Y (155)
 
-#define ACTBUTTON_RECT {200,10,75,16} /* 시작/스답버튼 좌표와 크기 */
-#define THROTTLE_RECT  {10,35,265,30} /* 스로틀 바 좌표와 크기 */
-#define TIMER_RECT  {10,62,265,3} /* 타이머 바 좌표와 크기 */
+#define ACTBUTTON_RECT {200,10,75,16}   /* 시작/스답버튼 좌표와 크기 */
+#define THROTTLE_RECT  {10,35,265,30}   /* 스로틀 바 좌표와 크기 */
+#define TIMER_RECT     {10,62,265,3}    /* 타이머 바 좌표와 크기 */
 #define MAX_TRAFFIC    (100)            /* 트래픽 한계치 (단위 Mbps) (12500000 바이트) */
 #define MBPS_UNIT      (3)              /* 트래픽 조절 단위 (3Mbps 단위로 조절)*/
 #define MAX_THREAD     (4)              /* 생성할 스레드 갯수 */
@@ -57,10 +57,13 @@ typedef struct _st_threadarg_flood
     int  Index; /* 이 스레드의 ID 값. (어떤 더미 문자열을 플러딩 할 것인지 이 값으로 결정.)*/
 } THREADARG_FLOOD;
 
+/**
+   @brief UDP로 보낼 더미데이터 (가상의 Syslog 데이터이다)
+*/
 char DummyLog[4][512] = {"Nov  4 10:35:05 deava666 whoopsie[1179]: [10:35:05] Not a paid data plan: /org/freedesktop/NetworkManager/ActiveConnection/1",
                          "Nov  4 11:00:24 Nova666 dbus-daemon[870]: [system] Activating via systemd: service name='org.freedesktop.nm_dispatcher' unit='dbus-org.freedesktop.nm-dispatcher.service' requested by ':1.12' (uid=0 pid=871 comm=\" / usr / sbin / NetworkManager --no - daemon \" label=\"unconfined\")",
                          "Nov  4 05:26:05 Lava666 NetworkManager[871]: <info>  [1635971165.1844] manager: NetworkManager state is now CONNECTED_GLOBAL",
-                         "Nov  4 04:29:20 deava666 dbus-daemon[870]: [system] Activating via systemd: service name='org.freedesktop.fwupd' unit='fwupd.service' requested by ':1.96540' (uid=62803 pid=2796143 comm=\"/usr/bin/fwupdmgr refresh\"label=\"unconfined\")"};
+                         "Nov  4 04:29:20 Java666 dbus-daemon[870]: [system] Activating via systemd: service name='org.freedesktop.fwupd' unit='fwupd.service' requested by ':1.96540' (uid=62803 pid=2796143 comm=\"/usr/bin/fwupdmgr refresh\"label=\"unconfined\")"};
 
 /**
     @brief UDP 부하용 스레드
@@ -162,7 +165,7 @@ static BOOL OnActivateButtonClick(HWND hWnd, UINT Message, WPARAM wParam, LPARAM
     if (pApp->bFlagAvtivate) { /*활성화 상태 에서만 스레드 생성 해 줌.*/
         /*pApp->Mbps = 1;*/ /*이미 결정된 .Mbps 값을 바로 이용한다.*/
         pApp->RunningTime = 0;
-        pApp->BaseTick = GetTickCount();
+        pApp->BaseTick = (unsigned long)GetTickCount64();
         pApp->CurrentSendPackets = 0;
         for (i = 0; i < MAX_THREAD; i++) {
             thArg[i].Index = i;
@@ -176,41 +179,37 @@ static BOOL OnActivateButtonClick(HWND hWnd, UINT Message, WPARAM wParam, LPARAM
 LRESULT CALLBACK WndProc(HWND hWnd, UINT Message, WPARAM wParam, LPARAM lParam)
 {
     APP*            pApp;
-    HDC             hDC;
-    HDC             MemDC;
+    HDC             hDC, MemDC;
     HBITMAP         hBit, hOldBit;
     PAINTSTRUCT     ps;
     RECT            TempRect;
     char            TempStr[1024];
     SIZE            ObjectSize;
     POINT           TempPt;
-    int             TempInteger;
-    int             i;
-    unsigned int    thID[MAX_THREAD];
-    THREADARG_FLOOD thArg[MAX_THREAD];
+    int             i, TempInteger, Res;
     unsigned char   rv,gv;
     float           vector;
     char            ThrottleMessage[64];
     char            EtcMessage[64];
-    unsigned long   Tick;
-    unsigned long   RemainTick;
+    unsigned long   Tick, RemainTick;
     unsigned int    colorR;
+
     switch (Message) {
     case WM_CREATE:
         pApp = (APP*)calloc(1, sizeof(APP));
         if (!pApp) {PostQuitMessage(0); break;}
-        WSAStartup(MAKEWORD(2,2), &pApp->wsa);
+        Res = WSAStartup(MAKEWORD(2,2), &pApp->wsa);
         pApp->hWndMain   = hWnd;
-        pApp->hEditIP    = CreateWindowExA(NULL, "edit", "192.168.210.1", WS_CHILD | WS_VISIBLE, 10, 10, 120, 15, hWnd, NULL, NULL, NULL);
-        pApp->hEditPort  = CreateWindowExA(NULL, "edit", "20011", WS_CHILD | WS_VISIBLE, 140, 10, 50, 15, hWnd, NULL, NULL, NULL);
-        pApp->hEditTimer = CreateWindowExA(NULL, "edit", "0", WS_CHILD | WS_VISIBLE, 220, 70, 25, 15, hWnd, NULL, NULL, NULL);
+        pApp->hEditIP    = CreateWindowExA(NULL, "edit", "192.168.0.1", WS_CHILD | WS_VISIBLE, 10, 10, 120, 15, hWnd, NULL, NULL, NULL);
+        pApp->hEditPort  = CreateWindowExA(NULL, "edit", "135", WS_CHILD | WS_VISIBLE, 140, 10, 50, 15, hWnd, NULL, NULL, NULL);
+        pApp->hEditTimer = CreateWindowExA(NULL, "edit", "60", WS_CHILD | WS_VISIBLE, 220, 70, 25, 15, hWnd, NULL, NULL, NULL);
         pApp->DefFont    = CreateFontA(16,0,0,0,FW_BOLD,0,0,0, HANGEUL_CHARSET,0,0,0,FF_ROMAN,"맑은 고딕");
         pApp->SmallFont  = CreateFontA(14,0,0,0, FW_MEDIUM,0,0,0, HANGEUL_CHARSET,0,0,0,FF_ROMAN,"맑은 고딕");
         TempInteger = 0;
         for(i=0 ; i<MAX_THREAD ; i++) TempInteger += (int)strlen(DummyLog[i]);
         pApp->AvgDatagramSize = TempInteger/MAX_THREAD;
         pApp->Mbps = 1; /*1 Mbps 미만은 없다.*/
-        pApp->BaseTick = GetTickCount();
+        pApp->BaseTick = (unsigned long)GetTickCount64();
         SetWindowLongPtr(hWnd, GWLP_USERDATA, (LONG_PTR)pApp);
         SendMessage(pApp->hEditIP, WM_SETFONT, (WPARAM)pApp->DefFont, 0) ;
         SendMessage(pApp->hEditPort, WM_SETFONT, (WPARAM)pApp->DefFont, 0);
@@ -246,7 +245,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT Message, WPARAM wParam, LPARAM lParam)
         TempRect = ACTBUTTON_RECT; TempRect.right+=TempRect.left; TempRect.bottom+=TempRect.top;
         TempPt.x = GET_X_LPARAM(lParam);
         TempPt.y = GET_Y_LPARAM(lParam);
-        if (PtInRect(&TempRect, TempPt))
+        if (PtInRect(&TempRect, TempPt)) /*버튼 클릭여부 조사*/
             OnActivateButtonClick(hWnd, Message, wParam, lParam);
 
         return 0;
@@ -270,7 +269,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT Message, WPARAM wParam, LPARAM lParam)
         /*구동버튼*/
         TempRect = ACTBUTTON_RECT;
         if (pApp->bFlagAvtivate){
-            Tick = distance(pApp->BaseTick, GetTickCount());
+            Tick = distance(pApp->BaseTick, (unsigned long)GetTickCount64());
             colorR = 0x40 + (unsigned char)( 0x5f * ((sin(Tick/200.f))+1.f) / 2.f );
             Draw_Rectangle(MemDC, TempRect.left, TempRect.top, TempRect.right, TempRect.bottom, 0, RGB(colorR, 0x38, 0x38), TRUE, FALSE);
             strcpy(TempStr, "Flooding");
@@ -291,9 +290,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT Message, WPARAM wParam, LPARAM lParam)
         
         /*스로틀 수준에따라 색상과 출력 크기 조절. (마우스 휠로 조절됨)*/
         vector = pApp->Mbps /(float)MAX_TRAFFIC;
-        rv = 0x4f; rv *= vector;                 /*벡터가 낮을수록(스로틀이 낮을수록) rv 색상은 0.0에 근접*/
-        gv = 0x4f; gv *= vector; gv = 0x4f - gv; /*벡터가 낮을수록(스로틀이 낮을수록) gv 색상은 1.0에 근접*/
-        Draw_Rectangle(MemDC, TempRect.left, TempRect.top, TempRect.right*vector, TempRect.bottom, 0, RGB(0x27+rv, 0x27+gv, 0x27),TRUE, FALSE);
+        rv = 0x4f; rv = (unsigned char)(rv * vector);                 /*벡터가 낮을수록(스로틀이 낮을수록) rv 색상은 0.0에 근접*/
+        gv = 0x4f; gv = (unsigned char)(gv * vector); gv = 0x4f - gv; /*벡터가 낮을수록(스로틀이 낮을수록) gv 색상은 1.0에 근접*/
+        Draw_Rectangle(MemDC, TempRect.left, TempRect.top, (int)(TempRect.right*vector), TempRect.bottom, 0, RGB(0x27+rv, 0x27+gv, 0x27),TRUE, FALSE);
 
         sprintf(ThrottleMessage, "Throttle : %d Mbps", pApp->Mbps);
         Draw_GetTextExtent(MemDC, ThrottleMessage, pApp->DefFont, &ObjectSize); /*텍스트의 폰트출력 크기 얻기*/
@@ -309,7 +308,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT Message, WPARAM wParam, LPARAM lParam)
         Draw_Text(MemDC, (char*)"Sec", 250, 70, RGB(230,230,230), pApp->DefFont);
 
         if (pApp->bFlagAvtivate) {
-            Tick = distance(pApp->BaseTick, GetTickCount()); /*현재 플러딩 러닝타임 구하기*/
+            Tick = distance(pApp->BaseTick, (unsigned long)GetTickCount64()); /*현재 플러딩 러닝타임 구하기*/
             pApp->CurrentPPS = (int)(pApp->CurrentSendPackets / (Tick / 1000.f));
         }
         sprintf(EtcMessage, "Current PPS : %d Pkt ( %d Pkt/s )", pApp->CurrentSendPackets, pApp->CurrentPPS);
@@ -322,7 +321,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT Message, WPARAM wParam, LPARAM lParam)
                 pApp->bFlagAvtivate = FALSE; /*시간 되면 구동종료*/
             vector = RemainTick / (float)(pApp->FloodTimer*1000);
             TempRect = TIMER_RECT;
-            Draw_Rectangle(MemDC, TempRect.left, TempRect.top, TempRect.right * vector, TempRect.bottom, 0, RGB(0xA0,0xA0,0xA0), TRUE, FALSE);
+            Draw_Rectangle(MemDC, TempRect.left, TempRect.top, (int)(TempRect.right * vector), TempRect.bottom, 0, RGB(0xA0,0xA0,0xA0), TRUE, FALSE);
         }
 
         /*그리기 끝*/
