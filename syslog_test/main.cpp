@@ -150,7 +150,7 @@ static BOOL OnActivateButtonClick(HWND hWnd, UINT Message, WPARAM wParam, LPARAM
     }
     GetWindowTextA(pApp->hEditPort, PortAddress, sizeof(PortAddress));
     Port = atoi(PortAddress);
-    if (Port < 1 || Port > 65535) {
+    if (Port < 0 || Port > 65535) {
         MessageBoxA(hWnd, "유효하지 않은 포트 입니다.", "Error", MB_ICONWARNING);
         return FALSE;
     }
